@@ -874,9 +874,10 @@ class Money
 
     formatted = case rules[:no_cents]
                 when true
-                  "#{symbol_value}#{self.to_s.to_i}"
+                  currency.symbol_after ? "#{self.to_s.to_i}#{currency.space_after ? ' ' : ''}#{symbol_value}" : "#{symbol_value}#{self.to_s.to_i}"
                 else
                   "#{symbol_value}#{self.to_s}"
+                  currency.symbol_after ? "#{self.to_s}#{currency.space_after ? ' ' : ''}#{symbol_value}" : "#{symbol_value}#{self.to_s}"
                 end
     if rules.has_key?(:separator) and rules[:separator] and
       rules[:separator] != separator

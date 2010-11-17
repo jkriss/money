@@ -794,6 +794,10 @@ describe Money do
       Money.us_dollar(1_000_000_000_12).format.should == "$1,000,000,000.12"
       Money.us_dollar(1_000_000_000_12).format(:no_cents => true).should == "$1,000,000,000"
     end
+    
+    it "should put the currency after the value when appropriate" do
+      Money.new(1000, "NOK").format.should == "10.00 kr"
+    end
   end
 
 

@@ -10,7 +10,7 @@ class Money
     class UnknownCurrency < StandardError; end
 
     # List of attributes applicable to a currency object.
-    ATTRIBUTES = [ :priority, :iso_code, :name, :symbol, :subunit, :subunit_to_unit, :separator, :delimiter ]
+    ATTRIBUTES = [ :priority, :iso_code, :name, :symbol, :subunit, :subunit_to_unit, :separator, :delimiter, :symbol_after, :space_after ]
 
     # List of known currencies.
     #
@@ -126,7 +126,7 @@ class Money
       :nad => { :priority => 100, :iso_code => "NAD", :name => "Namibian Dollar",                           :symbol => "$",             :subunit => "Cent",          :subunit_to_unit => 100, :separator => ".", :delimiter => ","   },
       :ngn => { :priority => 100, :iso_code => "NGN", :name => "Nigerian Naira",                            :symbol => "₦",             :subunit => "Kobo",          :subunit_to_unit => 100, :separator => ".", :delimiter => ","   },
       :nio => { :priority => 100, :iso_code => "NIO", :name => "Nicaraguan Córdoba",                        :symbol => "C$",            :subunit => "Centavo",       :subunit_to_unit => 100, :separator => ".", :delimiter => ","   },
-      :nok => { :priority => 100, :iso_code => "NOK", :name => "Norwegian Krone",                           :symbol => "kr",            :subunit => "Øre",           :subunit_to_unit => 100, :separator => ".", :delimiter => ","   },
+      :nok => { :priority => 100, :iso_code => "NOK", :name => "Norwegian Krone",                           :symbol => "kr",            :subunit => "Øre",           :subunit_to_unit => 100, :separator => ".", :delimiter => ",", :symbol_after => true, :space_after => true   },
       :npr => { :priority => 100, :iso_code => "NPR", :name => "Nepalese Rupee",                            :symbol => "₨",             :subunit => "Paisa",         :subunit_to_unit => 100, :separator => ".", :delimiter => ","   },
       :nzd => { :priority => 100, :iso_code => "NZD", :name => "New Zealand Dollar",                        :symbol => "$",             :subunit => "Cent",          :subunit_to_unit => 100, :separator => ".", :delimiter => ","   },
       :omr => { :priority => 100, :iso_code => "OMR", :name => "Omani Rial",                                :symbol => "ر.ع.",          :subunit => "Baisa",         :subunit_to_unit => 1000, :separator => ".", :delimiter => "," },
@@ -236,6 +236,9 @@ class Money
     #
     # @return [String]
     attr_reader :delimiter
+    
+    attr_reader :symbol_after
+    attr_reader :space_after
 
     # Create a new +Currency+ object.
     #
