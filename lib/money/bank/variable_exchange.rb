@@ -30,6 +30,8 @@ class Money
     #   bank.exchange_with(c2, "USD") #=> #<Money @cents=803115>
     class VariableExchange < Base
 
+      attr_reader :rates
+
       # Available formats for importing/exporting rates.
       RATE_FORMATS = [:json, :ruby, :yaml]
 
@@ -42,12 +44,22 @@ class Money
         self
       end
 
+      def marshal_dump
+        [@rates, @rounding_method]
+      end
+
+      def marshal_load(arr)
+        @rates, @rounding_method = arr
+        @mutex = Mutex.new
+      end
+
       # Exchanges the given +Money+ object to a new +Money+ object in
       # +to_currency+.
       #
-      # @param [Money] from The +Money+ object to exchange.
-      # @param [Currency, String, Symbol] to_currency The currency to exchange
-      #  to.
+      # @param  [Money] from
+      #         The +Money+ object to exchange.
+      # @param  [Currency, String, Symbol] to_currency
+      #         The currency to exchange to.
       #
       # @yield [n] Optional block to use when rounding after exchanging one
       #  currency for another.
@@ -72,7 +84,7 @@ class Money
       #
       #   # Exchange 100 CAD to USD:
       #   bank.exchange_with(c2, "USD") #=> #<Money @cents=803115>
-      def exchange_with(from, to_currency, &block)
+      def exchange_with(from, to_currency)
         return from if same_currency?(from.currency, to_currency)
 
         rate = get_rate(from.currency, to_currency)
@@ -81,12 +93,12 @@ class Money
         end
         _to_currency_  = Currency.wrap(to_currency)
 
-        cents = from.cents / (BigDecimal.new(from.currency.subunit_to_unit.to_s) / BigDecimal.new(_to_currency_.subunit_to_unit.to_s))
+        cents = BigDecimal.new(from.cents.to_s) / (BigDecimal.new(from.currency.subunit_to_unit.to_s) / BigDecimal.new(_to_currency_.subunit_to_unit.to_s))
 
         ex = cents * BigDecimal.new(rate.to_s)
         ex = ex.to_f
         ex = if block_given?
-               block.call(ex)
+               yield ex
              elsif @rounding_method
                @rounding_method.call(ex)
              else

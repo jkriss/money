@@ -1,3 +1,99 @@
+Money 3.6.1
+===========
+
+Bugfixes
+--------
+ - Floating point comparison needs to Epsilon aware (thanks Tobias Luetke)
+ - reimplement fix for #issue/43, enable Marshal.(load/dump)
+
+Money 3.6.0
+===========
+
+Features
+--------
+ - Add a symbol position option for Money#format (thanks Romain, Gil and
+   Julien)
+ - Updated CNY to use "Fen" and subunit_to_unit of 100
+ - Updates to work with gem-testers.org
+
+Bugfixes
+--------
+ - Fixed issue with #format(:no_cents => true) (thanks Romain & Julien)
+
+Money 3.5.5
+===========
+
+Features
+--------
+ - Enhancements to Money::Currency (thanks Matthew McEachen)
+   - Replace delimiter with thousands_separator
+   - Replace separator with decimal_mark
+   - Added symbol_first and html_entity
+ - Added allocation algorithm for fair(ish) splitting of money between parties
+   without loosing pennies (thanks Tobias Luetke)
+
+Bugfixes
+--------
+ - Always store cents as an Integer (thanks Abhay Kumar)
+ - Fixed TypeError in rate exchange (thanks Christian Billen)
+ - Cleanup #parse (thanks Tom Lianza)
+
+Money 3.5.4
+===========
+
+Features
+--------
+ - Added Currency#decimal_places.
+
+Bugfixes
+--------
+ - Fixed error with Money#to_s error with negative amounts that are only cents.
+
+Money 3.5.3
+===========
+
+Bugfixes
+--------
+ - Fixed an error in #to_s when cents is negative
+
+Money 3.5.2
+===========
+
+Bugfixes
+--------
+ - Fixed an error in #to_s which appended extra 0s incorrectly
+
+Money 3.5.1
+===========
+
+Bugfixes
+--------
+ - Removed erroneous require.
+
+Money 3.5.0
+===========
+
+Features
+--------
+ - Updated to RSpec2.
+ - Use i18n to lookup separator and delimiter signs.
+ - Removed all deprecated methods up to v3.5.0, including the following:
+   - Using Money#format with params instead of a Hash.
+   - Using a Hash with Money#new.
+   - Using Bank#exchange, use Bank#exchange_with instead.
+
+Bugfixes
+--------
+ - Updated Money#to_s to respect :separator and :subunit_to_unit.
+ - Fixed Money#format for :subunit_to_unit != 100.
+   ([#issue/37](http://github.com/RubyMoney/money/issue/37))
+ - Fixed String#to_money for :subunit_to_unit != 100.
+   ([#issue/36](http://github.com/RubyMoney/money/issue/36))
+ - Removed duplicate currencies.
+   ([#issue/38](http://github.com/RubyMoney/money/issue/38))
+ - Fixed issue related to JRuby returning 2 for Math.log10(1000).floor instead
+   of correctly returning 3.
+
 Money 3.1.5
 ===========
 

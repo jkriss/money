@@ -1,9 +1,15 @@
 # encoding: utf-8
 require 'money/bank/variable_exchange'
+require 'money/money/arithmetic'
+require 'money/money/parsing'
+require 'money/money/formatting'
 
 # Represents an amount of money in a given currency.
 class Money
   include Comparable
+  include Arithmetic
+  include Formatting
+  include Parsing
 
   # The value of the money in cents.
   #
@@ -131,223 +137,6 @@ class Money
     money.instance_variable_set("@bank", bank)
     money
   end
-
-
-  # Parses the current string and converts it to a +Money+ object.
-  # Excess characters will be discarded.
-  #
-  # @param [String, #to_s] input The input to parse.
-  # @param [Currency, String, Symbol] currency The currency format.
-  #   The currency to set the resulting +Money+ object to.
-  #
-  # @return [Money]
-  #
-  # @raise [ArgumentError] If any +currency+ is supplied and
-  #   given value doesn't match the one extracted from
-  #   the +input+ string.
-  #
-  # @example
-  #   '100'.to_money                #=> #<Money @cents=10000>
-  #   '100.37'.to_money             #=> #<Money @cents=10037>
-  #   '100 USD'.to_money            #=> #<Money @cents=10000, @currency=#<Money::Currency id: usd>>
-  #   'USD 100'.to_money            #=> #<Money @cents=10000, @currency=#<Money::Currency id: usd>>
-  #   '$100 USD'.to_money           #=> #<Money @cents=10000, @currency=#<Money::Currency id: usd>>
-  #   'hello 2000 world'.to_money   #=> #<Money @cents=200000 @currency=#<Money::Currency id: usd>>
-  #
-  # @example Mismatching currencies
-  #   'USD 2000'.to_money("EUR")    #=> ArgumentError
-  #
-  # @see Money.from_string
-  #
-  def self.parse(input, currency = nil)
-    i = input.to_s
-
-    # Get the currency.
-    m = i.scan /([A-Z]{2,3})/
-    c = m[0] ? m[0][0] : nil
-
-    # check that currency passed and embedded currency are the same,
-    # and negotiate the final currency
-    if currency.nil? and c.nil?
-      currency = Money.default_currency
-    elsif currency.nil?
-      currency = c
-    elsif c.nil?
-      currency = currency
-    elsif currency != c
-      # TODO: ParseError
-      raise ArgumentError, "Mismatching Currencies"
-    end
-    currency = Money::Currency.wrap(currency)
-
-    cents = extract_cents(i, currency)
-    Money.new(cents, currency)
-  end
-
-  # Converts a String into a Money object treating the +value+
-  # as dollars and converting them to the corresponding cents value,
-  # according to +currency+ subunit property,
-  # before instantiating the Money object.
-  #
-  # Behind the scenes, this method relies on {Money.from_bigdecimal}
-  # to avoid problems with string-to-numeric conversion.
-  #
-  # @param [String, #to_s] value The money amount, in dollars.
-  # @param [Currency, String, Symbol] currency
-  #   The currency to set the resulting +Money+ object to.
-  #
-  # @return [Money]
-  #
-  # @example
-  #   Money.from_string("100")
-  #   #=> #<Money @cents=10000 @currency="USD">
-  #   Money.from_string("100", "USD")
-  #   #=> #<Money @cents=10000 @currency="USD">
-  #   Money.from_string("100", "EUR")
-  #   #=> #<Money @cents=10000 @currency="EUR">
-  #   Money.from_string("100", "BHD")
-  #   #=> #<Money @cents=100 @currency="BHD">
-  #
-  # @see String#to_money
-  # @see Money.parse
-  #
-  def self.from_string(value, currency = Money.default_currency)
-    from_bigdecimal(BigDecimal.new(value.to_s), currency)
-  end
-
-  # Converts a Fixnum into a Money object treating the +value+
-  # as dollars and converting them to the corresponding cents value,
-  # according to +currency+ subunit property,
-  # before instantiating the Money object.
-  #
-  # @param [Fixnum] value The money amount, in dollars.
-  # @param [Currency, String, Symbol] currency The currency format.
-  #
-  # @return [Money]
-  #
-  # @example
-  #   Money.from_fixnum(100)
-  #   #=> #<Money @cents=10000 @currency="USD">
-  #   Money.from_fixnum(100, "USD")
-  #   #=> #<Money @cents=10000 @currency="USD">
-  #   Money.from_fixnum(100, "EUR")
-  #   #=> #<Money @cents=10000 @currency="EUR">
-  #   Money.from_fixnum(100, "BHD")
-  #   #=> #<Money @cents=100 @currency="BHD">
-  #
-  # @see Fixnum#to_money
-  # @see Money.from_numeric
-  #
-  def self.from_fixnum(value, currency = Money.default_currency)
-    currency = Money::Currency.wrap(currency)
-    amount   = value * currency.subunit_to_unit
-    Money.new(amount, currency)
-  end
-
-  # Converts a Float into a Money object treating the +value+
-  # as dollars and converting them to the corresponding cents value,
-  # according to +currency+ subunit property,
-  # before instantiating the Money object.
-  #
-  # Behind the scenes, this method relies on Money.from_bigdecimal
-  # to avoid problems with floating point precision.
-  #
-  # @param [Float] value The money amount, in dollars.
-  # @param [Currency, String, Symbol] currency The currency format.
-  #
-  # @return [Money]
-  #
-  # @example
-  #   Money.from_float(100.0)
-  #   #=> #<Money @cents=10000 @currency="USD">
-  #   Money.from_float(100.0, "USD")
-  #   #=> #<Money @cents=10000 @currency="USD">
-  #   Money.from_float(100.0, "EUR")
-  #   #=> #<Money @cents=10000 @currency="EUR">
-  #   Money.from_float(100.0, "BHD")
-  #   #=> #<Money @cents=100 @currency="BHD">
-  #
-  # @see Float#to_money
-  # @see Money.from_numeric
-  #
-  def self.from_float(value, currency = Money.default_currency)
-    from_bigdecimal(BigDecimal.new(value.to_s), currency)
-  end
-
-  # Converts a BigDecimal into a Money object treating the +value+
-  # as dollars and converting them to the corresponding cents value,
-  # according to +currency+ subunit property,
-  # before instantiating the Money object.
-  #
-  # @param [BigDecimal] value The money amount, in dollars.
-  # @param [Currency, String, Symbol] currency The currency format.
-  #
-  # @return [Money]
-  #
-  # @example
-  #   Money.from_bigdecimal(BigDecimal.new("100")
-  #   #=> #<Money @cents=10000 @currency="USD">
-  #   Money.from_bigdecimal(BigDecimal.new("100", "USD")
-  #   #=> #<Money @cents=10000 @currency="USD">
-  #   Money.from_bigdecimal(BigDecimal.new("100", "EUR")
-  #   #=> #<Money @cents=10000 @currency="EUR">
-  #   Money.from_bigdecimal(BigDecimal.new("100", "BHD")
-  #   #=> #<Money @cents=100 @currency="BHD">
-  #
-  # @see BigDecimal#to_money
-  # @see Money.from_numeric
-  #
-  def self.from_bigdecimal(value, currency = Money.default_currency)
-    currency = Money::Currency.wrap(currency)
-    amount   = value * currency.subunit_to_unit
-    Money.new(amount.fix, currency)
-  end
-
-  # Converts a Numeric value into a Money object treating the +value+
-  # as dollars and converting them to the corresponding cents value,
-  # according to +currency+ subunit property,
-  # before instantiating the Money object.
-  #
-  # This method relies on various +Money.from_*+ methods
-  # and tries to forwards the call to the most appropriate method
-  # in order to reduce computation effort.
-  # For instance, if +value+ is an Integer, this method calls
-  # {Money.from_fixnum} instead of using the default
-  # {Money.from_bigdecimal} which adds the overload to converts
-  # the value into a slower BigDecimal instance.
-  #
-  # @param [Numeric] value The money amount, in dollars.
-  # @param [Currency, String, Symbol] currency The currency format.
-  #
-  # @return [Money]
-  #
-  # @raise +ArgumentError+ Unless +value+ is a supported type.
-  #
-  # @example
-  #   Money.from_numeric(100)
-  #   #=> #<Money @cents=10000 @currency="USD">
-  #   Money.from_numeric(100.00)
-  #   #=> #<Money @cents=10000 @currency="USD">
-  #   Money.from_numeric("100")
-  #   #=> ArgumentError
-  #
-  # @see Numeric#to_money
-  # @see Money.from_fixnum
-  # @see Money.from_float
-  # @see Money.from_bigdecimal
-  #
-  def self.from_numeric(value, currency = Money.default_currency)
-    case value
-      when Fixnum
-        from_fixnum(value, currency)
-      when Numeric
-        from_bigdecimal(BigDecimal.new(value.to_s), currency)
-      else
-        raise ArgumentError, "`value' should be a Numeric object"
-    end
-  end
-
-
   # Adds a new exchange rate to the default bank and return the rate.
   #
   # @param [Currency, String, Symbol] from_currency Currency to exchange from.
@@ -386,20 +175,8 @@ class Money
   # @see Money.new_with_dollars
   #
   def initialize(cents, currency = Money.default_currency, bank = Money.default_bank)
-    @cents = cents.round
-    if currency.is_a?(Hash)
-      # Earlier versions of Money wrongly documented the constructor as being able
-      # to accept something like this:
-      #
-      #   Money.new(50, :currency => "USD")
-      #
-      # We retain compatibility here.
-      Money.deprecate "Passing :currency as option is deprecated and will be removed in v3.5.0. " +
-                      "Please use `Money.new('#{cents}'#{currency[:currency].nil? ? "" : ", '#{currency[:currency]}'"})'"
-      @currency = Currency.wrap(currency[:currency] || Money.default_currency)
-    else
-      @currency = Currency.wrap(currency)
-    end
+    @cents = cents.round.to_i
+    @currency = Currency.wrap(currency)
     @bank = bank
   end
 
@@ -441,37 +218,6 @@ class Money
     @currency = Currency.wrap(val)
   end
 
-  # Checks whether two money objects have the same currency and the same
-  # amount. Checks against money objects with a different currency and checks
-  # against objects that do not respond to #to_money will always return false.
-  #
-  # @param [Money] other_money Value to compare with.
-  #
-  # @return [Boolean]
-  #
-  # @example
-  #   Money.new(100) == Money.new(101) #=> false
-  #   Money.new(100) == Money.new(100) #=> true
-  def ==(other_money)
-    if other_money.respond_to?(:to_money)
-      other_money = other_money.to_money
-      cents == other_money.cents && self.currency == other_money.currency
-    else
-      false
-    end
-  end
-
-  # Synonymous with +#==+.
-  #
-  # @param [Money] other_money Value to compare with.
-  #
-  # @return [Money]
-  #
-  # @see #==
-  def eql?(other_money)
-    self == other_money
-  end
-
   # Returns a Fixnum hash value based on the +cents+ and +currency+ attributes
   # in order to use functions like & (intersection), group_by, etc.
   #
@@ -481,237 +227,6 @@ class Money
   #   Money.new(100).hash #=> 908351
   def hash
     [cents.hash, currency.hash].hash
-  end
-
-  # Compares this money object against another object. +other_money+ must
-  # respond to #to_money. Returns -1 when less than, 0 when equal and 1 when
-  # greater than.
-  #
-  # If +other_money+ is a different currency, then +other_money+ will first be
-  # converted into this money object's currency by calling +#exchange+ on
-  # +other_money+.
-  #
-  # Comparisons against objects that do not respond to #to_money will cause an
-  # +ArgumentError+ to be raised.
-  #
-  # @param [Money, #to_money] other_money Value to compare with.
-  #
-  # @return [-1, 0, 1]
-  #
-  # @raise [ArgumentError]
-  #
-  # @example
-  #   Money.new(100) <=> 99             #=>  1
-  #   Money.new(100) <=> Money.new(100) #=>  0
-  #   Money.new(100) <=> "$101.00"      #=> -1
-  def <=>(other_money)
-    if other_money.respond_to?(:to_money)
-      other_money = other_money.to_money
-      if self.currency == other_money.currency
-        cents <=> other_money.cents
-      else
-        cents <=> other_money.exchange_to(currency).cents
-      end
-    else
-      raise ArgumentError, "Comparison of #{self.class} with #{other_money.inspect} failed"
-    end
-  end
-
-  # Returns a new Money object containing the sum of the two operands' monetary
-  # values. If +other_money+ has a different currency then its monetary value
-  # is automatically exchanged to this object's currency using +exchange_to+.
-  #
-  # @param [Money] other_money Other +Money+ object to add.
-  #
-  # @return [Money]
-  #
-  # @example
-  #   Money.new(100) + Money.new(100) #=> #<Money @cents=200>
-  def +(other_money)
-    if currency == other_money.currency
-      Money.new(cents + other_money.cents, other_money.currency)
-    else
-      Money.new(cents + other_money.exchange_to(currency).cents, currency)
-    end
-  end
-
-  # Returns a new Money object containing the difference between the two
-  # operands' monetary values. If +other_money+ has a different currency then
-  # its monetary value is automatically exchanged to this object's currency
-  # using +exchange_to+.
-  #
-  # @param [Money] other_money Other +Money+ object to subtract.
-  #
-  # @return [Money]
-  #
-  # @example
-  #   Money.new(100) - Money.new(99) #=> #<Money @cents=1>
-  def -(other_money)
-    if currency == other_money.currency
-      Money.new(cents - other_money.cents, other_money.currency)
-    else
-      Money.new(cents - other_money.exchange_to(currency).cents, currency)
-    end
-  end
-
-  # Multiplies the monetary value with the given number and returns a new
-  # +Money+ object with this monetary value and the same currency.
-  #
-  # Note that you can't multiply a Money object by an other +Money+ object.
-  #
-  # @param [Numeric] value Number to multiply by.
-  #
-  # @return [Money] The resulting money.
-  #
-  # @raise [ArgumentError] If +value+ is a Money instance.
-  #
-  # @example
-  #   Money.new(100) * 2 #=> #<Money @cents=200>
-  #
-  def *(value)
-    if value.is_a?(Money)
-      raise ArgumentError, "Can't multiply a Money by a Money"
-    else
-      Money.new(cents * value, currency)
-    end
-  end
-
-  # Divides the monetary value with the given number and returns a new +Money+
-  # object with this monetary value and the same currency.
-  # Can also divide by another +Money+ object to get a ratio.
-  #
-  # +Money/Numeric+ returns +Money+. +Money/Money+ returns +Float+.
-  #
-  # @param [Money, Numeric] value Number to divide by.
-  #
-  # @return [Money] The resulting money if you divide Money by a number.
-  # @return [Float] The resulting number if you divide Money by a Money.
-  #
-  # @example
-  #   Money.new(100) / 10            #=> #<Money @cents=10>
-  #   Money.new(100) / Money.new(10) #=> 10.0
-  #
-  def /(value)
-    if value.is_a?(Money)
-      if currency == value.currency
-        (cents / BigDecimal.new(value.cents.to_s)).to_f
-      else
-        (cents / BigDecimal(value.exchange_to(currency).cents.to_s)).to_f
-      end
-    else
-      Money.new(cents / value, currency)
-    end
-  end
-
-  # Synonym for +#/+.
-  #
-  # @param [Money, Numeric] value Number to divide by.
-  #
-  # @return [Money] The resulting money if you divide Money by a number.
-  # @return [Float] The resulting number if you divide Money by a Money.
-  #
-  # @see #/
-  #
-  def div(value)
-    self / value
-  end
-
-  # Divide money by money or fixnum and return array containing quotient and
-  # modulus.
-  #
-  # @param [Money, Fixnum] val Number to divmod by.
-  #
-  # @return [Array<Money,Money>,Array<Fixnum,Money>]
-  #
-  # @example
-  #   Money.new(100).divmod(9)            #=> [#<Money @cents=11>, #<Money @cents=1>]
-  #   Money.new(100).divmod(Money.new(9)) #=> [11, #<Money @cents=1>]
-  def divmod(val)
-    if val.is_a?(Money)
-      a = self.cents
-      b = self.currency == val.currency ? val.cents : val.exchange_to(self.currency).cents
-      q, m = a.divmod(b)
-      return [q, Money.new(m, self.currency)]
-    else
-      return [self.div(val), Money.new(self.cents.modulo(val), self.currency)]
-    end
-  end
-
-  # Equivalent to +self.divmod(val)[1]+
-  #
-  # @param [Money, Fixnum] val Number take modulo with.
-  #
-  # @return [Money]
-  #
-  # @example
-  #   Money.new(100).modulo(9)            #=> #<Money @cents=1>
-  #   Money.new(100).modulo(Money.new(9)) #=> #<Money @cents=1>
-  def modulo(val)
-    self.divmod(val)[1]
-  end
-
-  # Synonym for +#modulo+.
-  #
-  # @param [Money, Fixnum] val Number take modulo with.
-  #
-  # @return [Money]
-  #
-  # @see #modulo
-  def %(val)
-    self.modulo(val)
-  end
-
-  # If different signs +self.modulo(val) - val+ otherwise +self.modulo(val)+
-  #
-  # @param [Money, Fixnum] val Number to rake remainder with.
-  #
-  # @return [Money]
-  #
-  # @example
-  #   Money.new(100).remainder(9) #=> #<Money @cents=1>
-  def remainder(val)
-    a, b = self, val
-    b = b.exchange_to(a.currency) if b.is_a?(Money) and a.currency != b.currency
-
-    a_sign, b_sign = :pos, :pos
-    a_sign = :neg if a.cents < 0
-    b_sign = :neg if (b.is_a?(Money) and b.cents < 0) or (b < 0)
-
-    return a.modulo(b) if a_sign == b_sign
-    a.modulo(b) - (b.is_a?(Money) ? b : Money.new(b, a.currency))
-  end
-
-  # Return absolute value of self as a new Money object.
-  #
-  # @return [Money]
-  #
-  # @example
-  #   Money.new(-100).abs #=> #<Money @cents=100>
-  def abs
-    Money.new(self.cents.abs, self.currency)
-  end
-
-  # Test if the money amount is zero.
-  #
-  # @return [Boolean]
-  #
-  # @example
-  #   Money.new(100).zero? #=> false
-  #   Money.new(0).zero?   #=> true
-  def zero?
-    cents == 0
-  end
-
-  # Test if the money amount is non-zero. Returns this money object if it is
-  # non-zero, or nil otherwise, like +Numeric#nonzero?+.
-  #
-  # @return [Money, nil]
-  #
-  # @example
-  #   Money.new(100).nonzero? #=> #<Money @cents=100>
-  #   Money.new(0).nonzero?   #=> nil
-  def nonzero?
-    cents != 0 ? self : nil
   end
 
   # Uses +Currency#symbol+. If +nil+ is returned, defaults to "¤".
@@ -913,11 +428,14 @@ class Money
   # @example
   #   Money.ca_dollar(100).to_s #=> "1.00"
   def to_s
-    decimal_places = Math.log10(currency.subunit_to_unit).ceil
-    unit, subunit  = cents.divmod(currency.subunit_to_unit).map{|o| o.to_s}
-    return unit if decimal_places == 0
-    subunit = (subunit + ("0" * decimal_places))[0, decimal_places]
-    "#{unit}#{separator}#{subunit}"
+    unit, subunit  = cents.abs.divmod(currency.subunit_to_unit).map{|o| o.to_s}
+    if currency.decimal_places == 0
+      return "-#{unit}" if cents < 0
+      return unit
+    end
+    subunit = (("0" * currency.decimal_places) + subunit)[(-1*currency.decimal_places)..-1]
+    return "-#{unit}#{decimal_mark}#{subunit}" if cents < 0
+    "#{unit}#{decimal_mark}#{subunit}"
   end
 
   # Return the amount of money as a float. Floating points cannot guarantee
@@ -990,142 +508,62 @@ class Money
     self
   end
 
-  private
-
-  # Cleans up formatting rules.
+  # Common inspect function
   #
-  # @param [Hash]
-  #
-  # @return [Hash]
-  def normalize_formatting_rules(rules)
-    if rules.size == 0
-      rules = {}
-    elsif rules.size == 1
-      rules = rules.pop
-      rules = { rules => true } if rules.is_a?(Symbol)
-    else
-      Money.deprecate "Passing options as parameters is deprecated and will be removed in v3.5.0. " +
-                      "Please use `#format(#{rules.map { |r| ":#{r} => true" }.join(", ") })'"
-      rules = rules.inject({}) do |h,s|
-        h[s] = true
-        h
-      end
-    end
-    rules
+  # @return [String]
+  def inspect
+    "#<Money cents:#{cents} currency:#{currency}>"
   end
 
-  # Takes a number string and attempts to massage out the number.
+  # Allocates money between different parties without loosing pennies.
+  # After the mathmatically split has been performed, left over pennies will
+  # be distributed round-robin amongst the parties. This means that parties
+  # listed first will likely recieve more pennies then ones that are listed later
   #
-  # @param [String] input The string containing a potential number.
+  # @param [0.50, 0.25, 0.25] to give 50% of the cash to party1, 25% ot party2, and 25% to party3.
   #
-  # @return [Integer]
+  # @return [Array<Money, Money, Money>]
   #
-  def self.extract_cents(input, currency = Money.default_currency)
-    # remove anything that's not a number, potential delimiter, or minus sign
-    num = input.gsub(/[^\d|\.|,|\'|\s|\-]/, '').strip
+  # @example
+  #   Money.new(5, "USD").allocate([0.3,0.7)) #=> [Money.new(2), Money.new(3)]
+  #   Money.new(100, "USD").allocate([0.33,0.33,0.33]) #=> [Money.new(34), Money.new(33), Money.new(33)]
+  def allocate(splits)
+    allocations = splits.inject(0.0) {|sum, i| sum += i }
+    raise ArgumentError, "splits add to more then 100%" if (allocations - 1.0) > Float::EPSILON
 
-    # set a boolean flag for if the number is negative or not
-    negative = num.split(//).first == "-"
+    left_over = cents
 
-    # if negative, remove the minus sign from the number
-    num = num.gsub(/^-/, '') if negative
-
-    # gather all separators within the result number
-    used_separators = num.scan /[^\d]/
-
-    # determine the number of unique separators within the number
-    #
-    # e.g.
-    # $1,234,567.89 would return 2 (, and .)
-    # $125,00 would return 1
-    # $199 would return 0
-    # $1 234,567.89 would raise an error (separators are space, comma, and period)
-    case used_separators.uniq.length
-    # no separator or delimiter; major (dollars) is the number, and minor (cents) is 0
-    when 0 then major, minor = num, 0
-
-    # two separators, so we know the last item in this array is the
-    # major/minor delimiter and the rest are separators
-    when 2
-      separator, delimiter = used_separators.uniq
-      # remove all separators, split on the delimiter
-      major, minor = num.gsub(separator, '').split(delimiter)
-      min = 0 unless min
-    when 1
-      # we can't determine if the comma or period is supposed to be a separator or a delimiter
-      # e.g.
-      # 1,00 - comma is a delimiter
-      # 1.000 - period is a delimiter
-      # 1,000 - comma is a separator
-      # 1,000,000 - comma is a separator
-      # 10000,00 - comma is a delimiter
-      # 1000,000 - comma is a delimiter
-
-      # assign first separator for reusability
-      separator = used_separators.first
-
-      # separator is used as a separator when there are multiple instances, always
-      if num.scan(separator).length > 1 # multiple matches; treat as separator
-        major, minor = num.gsub(separator, ''), 0
-      else
-        # ex: 1,000 - 1.0000 - 10001.000
-        # split number into possible major (dollars) and minor (cents) values
-        possible_major, possible_minor = num.split(separator)
-        possible_major ||= "0"
-        possible_minor ||= "00"
-
-        # if the minor (cents) length isn't 3, assign major/minor from the possibles
-        # e.g.
-        #   1,00 => 1.00
-        #   1.0000 => 1.00
-        #   1.2 => 1.20
-        if possible_minor.length != 3 # delimiter
-          major, minor = possible_major, possible_minor
-        else
-          # minor length is three
-          # let's try to figure out intent of the delimiter
-
-          # the major length is greater than three, which means
-          # the comma or period is used as a delimiter
-          # e.g.
-          #   1000,000
-          #   100000,000
-          if possible_major.length > 3
-            major, minor = possible_major, possible_minor
-          else
-            # number is in format ###{sep}### or ##{sep}### or #{sep}###
-            # handle as , is sep, . is delimiter
-            if separator == '.'
-              major, minor = possible_major, possible_minor
-            else
-              major, minor = "#{possible_major}#{possible_minor}", 0
-            end
-          end
-        end
-      end
-    else
-      # TODO: ParseError
-      raise ArgumentError, "Invalid currency amount"
+    amounts = splits.collect do |ratio|
+      fraction = (cents * ratio / allocations).floor
+      left_over -= fraction
+      fraction
     end
 
-    # build the string based on major/minor since separator/delimiters have been removed
-    # avoiding floating point arithmetic here to ensure accuracy
-    cents = (major.to_i * currency.subunit_to_unit)
-    # add the minor number as well. this may have any number of digits,
-    # so we treat minor as a string and truncate or right-fill it with zeroes
-    # until it becomes a two-digit number string, which we add to cents.
-    decimal_places = Math.log10(currency.subunit_to_unit)
-    minor = minor.to_s
-    truncated_minor = minor[0..1]
-    truncated_minor << "0" * (decimal_places - truncated_minor.size) if truncated_minor.size < decimal_places
-    cents += truncated_minor.to_i
-    # respect rounding rules
-    if minor.size >= 3 && minor[2..2].to_i >= 5
-      cents += 1
-    end
+    left_over.times { |i| amounts[i % amounts.length] += 1 }
 
-    # if negative, multiply by -1; otherwise, return positive cents
-    negative ? cents * -1 : cents
+    return amounts.collect { |cents| Money.new(cents, currency) }
   end
 
+  # Split money amongst parties evenly without loosing pennies.
+  #
+  # @param [2] number of parties.
+  #
+  # @return [Array<Money, Money, Money>]
+  #
+  # @example
+  #   Money.new(100, "USD").split(3) #=> [Money.new(34), Money.new(33), Money.new(33)]
+  def split(num)
+    raise ArgumentError, "need at least one party" if num < 1
+    low = Money.new(cents / num)
+    high = Money.new(low.cents + 1)
+
+    remainder = cents % num
+    result = []
+
+    num.times do |index|
+      result[index] = index < remainder ? high : low
+    end
+
+    return result
+  end
 end

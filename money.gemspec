@@ -1,8 +1,15 @@
 Gem::Specification.new do |s|
   s.name        = "money"
-  s.version     = "3.1.5"
+  s.version     = "3.6.1"
   s.platform    = Gem::Platform::RUBY
-  s.authors     = ["Tobias Luetke", "Hongli Lai", "Jeremy McNevin", "Shane Emmons", "Simone Carletti"]
+  s.authors     = ["Tobias Luetke", "Hongli Lai", "Jeremy McNevin",
+                   "Shane Emmons", "Simone Carletti", "Jean-Louis Giordano",
+                   "Joshua Clayton", "Bodaniel Jeanes", "Tobias Schmidt",
+                   "Chris Kampmeier", "Romain Gérard", "Eloy", "Josh Delsman",
+                   "Pelle Braendgaard", "Tom Lianza", "James Cotterill",
+                   "François Beausoleil", "Abhay Kumar", "pconnor",
+                   "Christian Billen", "Ilia Lobsanov",
+                  ]
   s.email       = ["hongli@phusion.nl", "semmons99+RubyMoney@gmail.com"]
   s.homepage    = "http://money.rubyforge.org"
   s.summary     = "Money and currency exchange support library."
@@ -19,6 +26,9 @@ Gem::Specification.new do |s|
 
   s.requirements << "json if you plan to import/export rates formatted as json"
 
-  s.files        = Dir.glob("lib/**/*") + %w(CHANGELOG.md LICENSE README.md)
+  s.files =  Dir.glob("{lib,spec}/**/*")
+  s.files += %w(CHANGELOG.md LICENSE README.md)
+  s.files += %w(Rakefile .gemtest money.gemspec)
+
   s.require_path = "lib"
 end

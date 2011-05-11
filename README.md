@@ -177,15 +177,6 @@ There is nothing stopping you from creating bank objects which scrapes
 
     Money.default_bank = ExchangeBankWhichScrapesXeDotCom.new
 
-### Upcoming Changes
-
-Starting in v3.1.0 we will be making two changes to the exchange process. First
-a new `Bank::Base` class will be available. This will allow users to more
-easily create custom `Bank` classes. Secondly the default `#exchange` method
-will be depreciated and a new `#exchange_with` method will be used. Currently
-`#exchange` passes the `cents` attribute. `#exchange_with` will pass the
-actual `Money` object instead.
-
 ### Implementations
 
 The following is a list of Money.gem compatible currency exchange rate
@@ -197,13 +188,19 @@ implementations.
 ## Ruby on Rails
 
 Use the `compose_of` helper to let Active Record deal with embedding the money
-object in your models. The following example requires a `cents` and a
-`currency` field.
+object in your models. The following example requires 2 columns:
+
+    :price_cents, :integer, :default => 0, :null => false
+    :currency, :string
+
+Then in your model file:
 
     composed_of :price,
       :class_name => "Money",
-      :mapping => [%w(cents cents), %w(currency currency_as_string)],
-      :constructor => Proc.new { |cents, currency| Money.new(cents || 0, currency || Money.default_currency) }
+      :mapping => [%w(price_cents cents), %w(currency currency_as_string)],
+      :constructor => Proc.new { |cents, currency| Money.new(cents || 0, currency || Money.default_currency) },
+      :converter => Proc.new { |value| value.respond_to?(:to_money) ? value.to_money : raise(ArgumentError, "Can't convert #{value.class} to Money") }
+
 
 For Money 2.2.x and previous versions, simply use the following `composed_of`
 definition:
